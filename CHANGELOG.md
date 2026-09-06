@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed
+
+- Follow the terminal theme for the terminal loading overlay and delay its
+  appearance during pastes, so pasting no longer flashes a dark layer over a
+  light terminal.
+
 ## 0.5.2 - 2026-09-06
 
 ### Added

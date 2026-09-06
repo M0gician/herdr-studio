@@ -135,6 +135,9 @@ const RESET_FOREGROUND = "\x1b[39m";
 const ANSI_SEQUENCE_RE =
   /\x1b\][\s\S]*?(?:\x07|\x1b\\)|\x1b\[[0-?]*[ -/]*[@-~]|\x1b[@-Z\\-_]/g;
 const CLIPBOARD_READ_TIMEOUT_MS = 2000;
+// Spinner-delay pattern: a paste that settles within this window never
+// surfaces the loading overlay, so quick pastes do not flash it at all.
+const PASTE_LOADING_DELAY_MS = 200;
 const TERMINAL_EVICTION_WINDOW_MS = 60_000;
 const TERMINAL_EVICTION_MAX_RETRIES = 3;
 
@@ -1044,7 +1047,15 @@ export function TerminalView({
         throw new Error("connection changed during paste");
       }
       pasteOperationCount += 1;
-      setPasteLoading(true);
+      let loadingTimer: number | null = null;
+      if (pasteOperationCount === 1) {
+        loadingTimer = window.setTimeout(() => {
+          loadingTimer = null;
+          if (pasteOperationCount > 0 && connectionClient.isCurrent()) {
+            setPasteLoading(true);
+          }
+        }, PASTE_LOADING_DELAY_MS);
+      }
       try {
         const result = await operation();
         if (!connectionClient.isCurrent()) {
@@ -1052,6 +1063,9 @@ export function TerminalView({
         }
         return result;
       } finally {
+        if (loadingTimer !== null) {
+          window.clearTimeout(loadingTimer);
+        }
         pasteOperationCount -= 1;
         if (pasteOperationCount === 0 && connectionClient.isCurrent()) {
           setPasteLoading(false);
