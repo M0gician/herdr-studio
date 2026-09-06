@@ -8120,8 +8120,10 @@ textarea:focus {
   justify-content: center;
   gap: 8px;
   border-radius: 9px;
-  background: rgba(11, 13, 18, 0.78);
-  color: #c9cdd6;
+  /* Follow the terminal theme: the hard-coded dark values matched the dark
+     palette but flashed black over the light terminal on every paste. */
+  background: color-mix(in srgb, var(--terminal-bg) 78%, transparent);
+  color: var(--terminal-fg);
   font:
     13px / 1 ui-monospace,
     SFMono-Regular,
