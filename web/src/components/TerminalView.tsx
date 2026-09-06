@@ -18,6 +18,7 @@ import {
 } from "react";
 import "@xterm/xterm/css/xterm.css";
 import { bridge, type ConnectionClient } from "../api";
+import type { ResolvedTheme } from "../appearance";
 import { mobileTerminalShortcutExecution } from "../mobileTerminalShortcutAction";
 import {
   defaultMobileTerminalShortcutRows,
@@ -90,6 +91,7 @@ import {
 } from "../terminalResize";
 import { terminalPageScroll, terminalWheelScroll } from "../terminalScroll";
 import { TerminalSelectionDragGuard } from "../terminalSelectionGuard";
+import { applyTerminalTheme, terminalThemeFor } from "../terminalThemes";
 import { paneHasAgentHistory } from "./agentSession";
 import { ConfirmDialog, MessageDialog } from "./ModalDialogs";
 import { TerminalComposer } from "./TerminalComposer";
@@ -399,6 +401,7 @@ export type TerminalWorkspaceFileRequest = {
 
 export function TerminalView({
   paneId,
+  resolvedTheme,
   showMobileKeys = true,
   mobileShortcuts = defaultMobileTerminalShortcutRows(),
   mobileSideShortcuts = defaultMobileTerminalSideShortcuts(),
@@ -409,6 +412,7 @@ export function TerminalView({
   onOpenWorkspaceFile,
 }: {
   paneId?: string;
+  resolvedTheme: ResolvedTheme;
   showMobileKeys?: boolean;
   mobileShortcuts?: MobileTerminalShortcutRows;
   mobileSideShortcuts?: MobileTerminalSideShortcuts;
@@ -493,6 +497,8 @@ export function TerminalView({
   // and without an instance change in the deps the attach effect would not
   // fire again, leaving the recreated terminal detached and blank.
   const [termInstance, setTermInstance] = useState<Terminal | null>(null);
+  // Theme changes update xterm in place without recreating the terminal.
+  const resolvedThemeRef = useRef(resolvedTheme);
   const fitRef = useRef<FitAddon | null>(null);
   const attachedRef = useRef<string | null>(null);
   const attachingRef = useRef<string | null>(null);
@@ -759,13 +765,7 @@ export function TerminalView({
       disableStdin: composerOpenRef.current,
       fontFamily: FONT_FAMILY,
       ...terminalDensity(),
-      theme: {
-        background: "#0b0d12",
-        foreground: "#c9cdd6",
-        cursor: "#c9cdd6",
-        overviewRulerBorder: "rgba(0,0,0,0)",
-        selectionBackground: "rgba(110,168,255,0.3)",
-      },
+      theme: terminalThemeFor(resolvedThemeRef.current),
       allowProposedApi: true,
       linkHandler: {
         activate(event, text) {
@@ -775,9 +775,7 @@ export function TerminalView({
           if (url) window.open(url, "_blank", "noopener,noreferrer");
         },
       },
-      // xterm treats exactly 0 as "use the 14px platform default". A positive
-      // sub-pixel value rounds its internal scrollbar gutter down to zero.
-      overviewRuler: { width: 0.01 },
+      scrollbar: { showScrollbar: false },
       scrollback: 2000,
     });
     const fit = new FitAddon();
@@ -1015,7 +1013,8 @@ export function TerminalView({
       observedAt: number,
     ) => {
       const shouldSend = imeFallback.recordInput(text, eventTime, observedAt);
-      if (shouldSend) sendText(text);
+      if (!shouldSend) return;
+      sendText(text);
     };
     const cancelImeTextareaFallback = () => {
       if (imeTextareaTimer !== null) {
@@ -1892,6 +1891,11 @@ export function TerminalView({
     connectionClient,
     termInstance,
   ]);
+
+  useEffect(() => {
+    resolvedThemeRef.current = resolvedTheme;
+    if (termInstance) applyTerminalTheme(termInstance, resolvedTheme);
+  }, [resolvedTheme, termInstance]);
 
   // Mobile browsers freeze the page while hidden: the socket can die
   // silently, rendering pauses, and composited content may come back blank.
