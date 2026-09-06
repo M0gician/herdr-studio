@@ -1042,16 +1042,23 @@ export function TerminalView({
       pasteTextareaClearTimer = null;
     };
     let pasteOperationCount = 0;
+    let pasteLoadingTimer: number | null = null;
+    const cancelPasteLoadingTimer = () => {
+      if (pasteLoadingTimer === null) return;
+      window.clearTimeout(pasteLoadingTimer);
+      pasteLoadingTimer = null;
+    };
     const runPasteOperation = async <T,>(operation: () => Promise<T>) => {
       if (!connectionClient.isCurrent()) {
         throw new Error("connection changed during paste");
       }
       pasteOperationCount += 1;
-      let loadingTimer: number | null = null;
+      // One timer per busy period: the overlay only appears when a paste
+      // (or a batch of concurrent pastes) outlasts the delay.
       if (pasteOperationCount === 1) {
-        loadingTimer = window.setTimeout(() => {
-          loadingTimer = null;
-          if (pasteOperationCount > 0 && connectionClient.isCurrent()) {
+        pasteLoadingTimer = window.setTimeout(() => {
+          pasteLoadingTimer = null;
+          if (connectionClient.isCurrent()) {
             setPasteLoading(true);
           }
         }, PASTE_LOADING_DELAY_MS);
@@ -1063,12 +1070,12 @@ export function TerminalView({
         }
         return result;
       } finally {
-        if (loadingTimer !== null) {
-          window.clearTimeout(loadingTimer);
-        }
         pasteOperationCount -= 1;
-        if (pasteOperationCount === 0 && connectionClient.isCurrent()) {
-          setPasteLoading(false);
+        if (pasteOperationCount === 0) {
+          cancelPasteLoadingTimer();
+          if (connectionClient.isCurrent()) {
+            setPasteLoading(false);
+          }
         }
       }
     };
@@ -1668,6 +1675,7 @@ export function TerminalView({
       cancelCompositionSettle();
       cancelNativePasteFallback();
       cancelPasteTextareaClear();
+      cancelPasteLoadingTimer();
       term.textarea?.removeEventListener("keydown", onTerminalKeyDown, {
         capture: true,
       });
