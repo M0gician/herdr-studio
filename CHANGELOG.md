@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.2 - 2026-09-06
+
 ### Added
 
 - Add a website tutorial, History filters, and adjustable text size.
