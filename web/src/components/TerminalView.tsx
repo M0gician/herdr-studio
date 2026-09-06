@@ -1676,6 +1676,9 @@ export function TerminalView({
       cancelNativePasteFallback();
       cancelPasteTextareaClear();
       cancelPasteLoadingTimer();
+      // The paste finally-blocks skip their reset once the connection is no
+      // longer current; never strand a visible overlay across the re-run.
+      setPasteLoading(false);
       term.textarea?.removeEventListener("keydown", onTerminalKeyDown, {
         capture: true,
       });
