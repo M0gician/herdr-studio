@@ -72,6 +72,7 @@ import {
   sanitizeTerminalHttpUrl,
 } from "../terminalLinks";
 import {
+  createTerminalPasteRunner,
   type TerminalPasteTextareaSnapshot,
   terminalPasteInputText,
   terminalPasteRequest,
@@ -135,9 +136,6 @@ const RESET_FOREGROUND = "\x1b[39m";
 const ANSI_SEQUENCE_RE =
   /\x1b\][\s\S]*?(?:\x07|\x1b\\)|\x1b\[[0-?]*[ -/]*[@-~]|\x1b[@-Z\\-_]/g;
 const CLIPBOARD_READ_TIMEOUT_MS = 2000;
-// Spinner-delay pattern: a paste that settles within this window never
-// surfaces the loading overlay, so quick pastes do not flash it at all.
-const PASTE_LOADING_DELAY_MS = 200;
 const TERMINAL_EVICTION_WINDOW_MS = 60_000;
 const TERMINAL_EVICTION_MAX_RETRIES = 3;
 
@@ -1041,44 +1039,11 @@ export function TerminalView({
       window.clearTimeout(pasteTextareaClearTimer);
       pasteTextareaClearTimer = null;
     };
-    let pasteOperationCount = 0;
-    let pasteLoadingTimer: number | null = null;
-    const cancelPasteLoadingTimer = () => {
-      if (pasteLoadingTimer === null) return;
-      window.clearTimeout(pasteLoadingTimer);
-      pasteLoadingTimer = null;
-    };
-    const runPasteOperation = async <T,>(operation: () => Promise<T>) => {
-      if (!connectionClient.isCurrent()) {
-        throw new Error("connection changed during paste");
-      }
-      pasteOperationCount += 1;
-      // One timer per busy period: the overlay only appears when a paste
-      // (or a batch of concurrent pastes) outlasts the delay.
-      if (pasteOperationCount === 1) {
-        pasteLoadingTimer = window.setTimeout(() => {
-          pasteLoadingTimer = null;
-          if (connectionClient.isCurrent()) {
-            setPasteLoading(true);
-          }
-        }, PASTE_LOADING_DELAY_MS);
-      }
-      try {
-        const result = await operation();
-        if (!connectionClient.isCurrent()) {
-          throw new Error("connection changed during paste");
-        }
-        return result;
-      } finally {
-        pasteOperationCount -= 1;
-        if (pasteOperationCount === 0) {
-          cancelPasteLoadingTimer();
-          if (connectionClient.isCurrent()) {
-            setPasteLoading(false);
-          }
-        }
-      }
-    };
+    const { run: runPasteOperation, dispose: disposePasteOperations } =
+      createTerminalPasteRunner(
+        () => connectionClient.isCurrent(),
+        setPasteLoading,
+      );
     const pasteImage = async (blob: Blob, destinationPaneId: string | null) => {
       const file =
         blob instanceof File
@@ -1675,10 +1640,7 @@ export function TerminalView({
       cancelCompositionSettle();
       cancelNativePasteFallback();
       cancelPasteTextareaClear();
-      cancelPasteLoadingTimer();
-      // The paste finally-blocks skip their reset once the connection is no
-      // longer current; never strand a visible overlay across the re-run.
-      setPasteLoading(false);
+      disposePasteOperations();
       term.textarea?.removeEventListener("keydown", onTerminalKeyDown, {
         capture: true,
       });
