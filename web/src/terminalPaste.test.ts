@@ -119,11 +119,19 @@ describe("terminal paste loading", () => {
   test("a stale connection cannot start a paste", async () => {
     current = false;
     const operation = mock(() => Promise.resolve("unused"));
-    await expect(runner.run(operation)).rejects.toThrow(
-      "connection changed during paste",
-    );
+    await expect(runner.run(operation)).rejects.toThrow("paste cancelled");
     expect(operation).not.toHaveBeenCalled();
     jest.advanceTimersByTime(200);
+    expect(setLoading).not.toHaveBeenCalled();
+  });
+
+  test("a disposed runner cannot start a paste on a current connection", async () => {
+    runner.dispose();
+    setLoading.mockClear();
+    const operation = mock(() => Promise.resolve("unused"));
+    await expect(runner.run(operation)).rejects.toThrow("paste cancelled");
+    expect(operation).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
     expect(setLoading).not.toHaveBeenCalled();
   });
 
@@ -133,7 +141,7 @@ describe("terminal paste loading", () => {
     current = false;
     jest.advanceTimersByTime(200);
     operation.resolve("stale");
-    await expect(result).rejects.toThrow("connection changed during paste");
+    await expect(result).rejects.toThrow("paste cancelled");
     expect(setLoading).not.toHaveBeenCalled();
   });
 
@@ -144,7 +152,7 @@ describe("terminal paste loading", () => {
     expect(jest.getTimerCount()).toBe(0);
     jest.advanceTimersByTime(200);
     operation.resolve("stale");
-    await expect(result).rejects.toThrow("connection changed during paste");
+    await expect(result).rejects.toThrow("paste cancelled");
     expect(setLoading.mock.calls).toEqual([[false]]);
   });
 
@@ -156,7 +164,7 @@ describe("terminal paste loading", () => {
     runner.dispose();
     expect(setLoading.mock.calls).toEqual([[true], [false]]);
     operation.resolve("stale");
-    await expect(result).rejects.toThrow("connection changed during paste");
+    await expect(result).rejects.toThrow("paste cancelled");
     expect(setLoading.mock.calls).toEqual([[true], [false]]);
   });
 
@@ -171,7 +179,7 @@ describe("terminal paste loading", () => {
     jest.advanceTimersByTime(200);
     setLoading.mockClear();
     oldOperation.resolve("old");
-    await expect(oldResult).rejects.toThrow("connection changed during paste");
+    await expect(oldResult).rejects.toThrow("paste cancelled");
     expect(setLoading).not.toHaveBeenCalled();
     newOperation.resolve("new");
     await newResult;

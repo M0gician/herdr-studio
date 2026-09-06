@@ -18,7 +18,7 @@ export function createTerminalPasteRunner(
   return {
     async run<T>(operation: () => Promise<T>): Promise<T> {
       if (disposed || !isCurrent()) {
-        throw new Error("connection changed during paste");
+        throw new Error("paste cancelled");
       }
       pending += 1;
       // Concurrent pastes share the first operation's delay, not a new one.
@@ -31,7 +31,7 @@ export function createTerminalPasteRunner(
       try {
         const result = await operation();
         if (disposed || !isCurrent()) {
-          throw new Error("connection changed during paste");
+          throw new Error("paste cancelled");
         }
         return result;
       } finally {
