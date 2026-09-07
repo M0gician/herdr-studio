@@ -25,6 +25,9 @@
 - Follow the terminal theme for the terminal loading overlay and delay its
   appearance during pastes, so pasting no longer flashes a dark layer over a
   light terminal.
+- Keep the Inspector following workspace focus switches: a focus marker whose
+  action completed without the workspace ever becoming focused no longer
+  disables retargeting indefinitely.
 
 ## 0.5.2 - 2026-09-06
 
