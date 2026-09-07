@@ -2,8 +2,20 @@
 
 ## Unreleased
 
+### Changed
+
+- Count only conversation messages toward the 200-entry History window so
+  tool-heavy turns no longer evict user messages, and fetch tool call/output
+  payloads on demand instead of transmitting them with every refresh. Tool
+  entries are now hidden by default and can be shown with the tool filter.
+- Show each workspace's tab count as a subtle number in the workspace tree,
+  and move the compact Inspector's back button into the file preview header.
+
 ### Fixed
 
+- Follow tab switches in the History view: re-pin the shown session to the
+  newly active tab's agent (or the next available agent when the pinned pane
+  closes) instead of showing a stale or missing session.
 - Follow the terminal theme for the terminal loading overlay and delay its
   appearance during pastes, so pasting no longer flashes a dark layer over a
   light terminal.
