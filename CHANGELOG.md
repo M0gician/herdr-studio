@@ -25,6 +25,8 @@
 - Follow the terminal theme for the terminal loading overlay and delay its
   appearance during pastes, so pasting no longer flashes a dark layer over a
   light terminal.
+- Stop duplicating IME text committed while switching input sources with
+  candidates visible (e.g. leaving a Chinese IME mid-composition).
 
 ## 0.5.2 - 2026-09-06
 
